@@ -1,4 +1,3 @@
-// database/migrations/2024_01_01_000001_create_categories_table.php
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -14,7 +13,7 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->string('slug')->unique();
             $table->text('description')->nullable();
-            $table->timestamps(); // created_at, updated_at
+            $table->timestamps();
         });
     }
 
