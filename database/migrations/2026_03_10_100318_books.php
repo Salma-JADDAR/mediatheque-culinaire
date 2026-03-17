@@ -1,4 +1,3 @@
-// database/migrations/2024_01_01_000002_create_books_table.php
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -21,9 +20,7 @@ return new class extends Migration
             $table->integer('total_copies')->default(1);
             $table->integer('available_copies')->default(1);
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
-            $table->timestamps(); // created_at, updated_at
-            
-            // Index pour améliorer les recherches
+            $table->timestamps(); 
             $table->index(['title', 'author']);
             $table->index('views');
         });
