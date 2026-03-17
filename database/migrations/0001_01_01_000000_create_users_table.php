@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('password');
             $table->enum('role', ['administrateur', 'gourmand'])->default('gourmand');
             $table->rememberToken();
-            $table->timestamps(); // created_at, updated_at
+            $table->timestamps(); 
         });
     }
 
