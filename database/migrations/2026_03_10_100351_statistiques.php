@@ -1,4 +1,3 @@
-// database/migrations/2024_01_01_000003_create_statistiques_table.php
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -16,11 +15,9 @@ return new class extends Migration
             $table->integer('borrow_count')->default(0);
             $table->integer('views')->default(0);
             $table->timestamps();
-            
-            // Un livre ne peut avoir qu'une seule statistique
+     
             $table->unique('book_id');
-            
-            // Index pour les recherches de popularité
+        
             $table->index(['views', 'borrow_count']);
         });
     }
