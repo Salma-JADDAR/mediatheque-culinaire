@@ -7,13 +7,15 @@ use App\Models\Category;
 use App\Models\Administrateur;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class BookController extends Controller
 {
+    use AuthorizesRequests; 
+
     public function __construct()
     {
-        // Dans Laravel 11, les middlewares fonctionnent différemment
-        // On peut les définir dans les routes directement
+        
     }
 
     public function index(Request $request, $categorySlug = null)
@@ -75,6 +77,9 @@ class BookController extends Controller
             ->with('category', 'statistique')
             ->firstOrFail();
 
+        // Policy: view
+        $this->authorize('view', $book);
+
         $book->incrementViews();
 
         return response()->json([
@@ -83,24 +88,10 @@ class BookController extends Controller
         ]);
     }
 
-    private function checkAdmin()
-    {
-        $user = Auth::user();
-        if (!$user || $user->role !== 'administrateur') {
-            return false;
-        }
-        return $user;
-    }
-
     public function store(Request $request)
     {
-        $user = $this->checkAdmin();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès non autorisé. Vous devez être administrateur.'
-            ], 403);
-        }
+        // Policy: create - Vérifie automatiquement si l'utilisateur peut créer
+        $this->authorize('create', Book::class);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -110,8 +101,14 @@ class BookController extends Controller
             'category_id' => 'required|exists:categories,id'
         ]);
 
-        $admin = Administrateur::find($user->id);
-        $book = $admin->ajouterLivre($validated);
+        $book = Book::create($validated);
+        
+        // Créer la statistique associée
+        \App\Models\Statistique::create([
+            'book_id' => $book->id,
+            'views' => 0,
+            'borrow_count' => 0
+        ]);
 
         return response()->json([
             'success' => true,
@@ -122,13 +119,8 @@ class BookController extends Controller
 
     public function update(Request $request, Book $book)
     {
-        $user = $this->checkAdmin();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès non autorisé. Vous devez être administrateur.'
-            ], 403);
-        }
+        // Policy: update - Vérifie si l'utilisateur peut modifier CE livre
+        $this->authorize('update', $book);
 
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
@@ -156,8 +148,7 @@ class BookController extends Controller
             }
         }
 
-        $admin = Administrateur::find($user->id);
-        $admin->modifierLivre($book, $validated);
+        $book->update($validated);
 
         return response()->json([
             'success' => true,
@@ -168,16 +159,10 @@ class BookController extends Controller
 
     public function destroy(Book $book)
     {
-        $user = $this->checkAdmin();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès non autorisé. Vous devez être administrateur.'
-            ], 403);
-        }
+        // Policy: delete - Vérifie si l'utilisateur peut supprimer CE livre
+        $this->authorize('delete', $book);
 
-        $admin = Administrateur::find($user->id);
-        $admin->supprimerLivre($book);
+        $book->delete();
 
         return response()->json([
             'success' => true,
@@ -187,13 +172,8 @@ class BookController extends Controller
 
     public function markAsDamaged(Request $request, Book $book)
     {
-        $user = $this->checkAdmin();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès non autorisé. Vous devez être administrateur.'
-            ], 403);
-        }
+        // Policy: markAsDamaged - Vérifie si l'utilisateur peut marquer comme dégradé
+        $this->authorize('markAsDamaged', $book);
 
         $validated = $request->validate([
             'condition' => 'required|in:moyen,degrade'

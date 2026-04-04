@@ -6,17 +6,17 @@ use App\Models\Category;
 use App\Models\Administrateur;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class CategoryController extends Controller
 {
-    // SUPPRIME COMPLÈTEMENT LE CONSTRUCTEUR
-    // public function __construct()
-    // {
-    //     $this->middleware('auth:sanctum')->except(['index', 'show', 'books']);
-    // }
+    use AuthorizesRequests; // ← Ajoute cette ligne pour utiliser les policies
 
     public function index()
     {
+        // Policy: viewAny - Tout le monde peut voir les catégories
+        $this->authorize('viewAny', Category::class);
+
         $categories = Category::withCount('books')
             ->orderBy('name')
             ->get()
@@ -41,6 +41,9 @@ class CategoryController extends Controller
     {
         $category = Category::where('slug', $slug)->firstOrFail();
         
+        // Policy: view - Tout le monde peut voir une catégorie
+        $this->authorize('view', $category);
+        
         return response()->json([
             'success' => true,
             'data' => [
@@ -53,32 +56,17 @@ class CategoryController extends Controller
         ]);
     }
 
-    private function checkAdmin()
-    {
-        $user = Auth::user();
-        if (!$user || $user->role !== 'administrateur') {
-            return false;
-        }
-        return $user;
-    }
-
     public function store(Request $request)
     {
-        $user = $this->checkAdmin();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès non autorisé. Vous devez être administrateur.'
-            ], 403);
-        }
-        
+        // Policy: create - Seulement les admins peuvent créer
+        $this->authorize('create', Category::class);
+
         $validated = $request->validate([
             'name' => 'required|string|unique:categories|max:255',
             'description' => 'nullable|string'
         ]);
 
-        $admin = Administrateur::find($user->id);
-        $category = $admin->ajouterCategory($validated);
+        $category = Category::create($validated);
 
         return response()->json([
             'success' => true,
@@ -94,21 +82,15 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category)
     {
-        $user = $this->checkAdmin();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès non autorisé. Vous devez être administrateur.'
-            ], 403);
-        }
-        
+        // Policy: update - Seulement les admins peuvent modifier
+        $this->authorize('update', $category);
+
         $validated = $request->validate([
             'name' => 'sometimes|string|unique:categories,name,' . $category->id . '|max:255',
             'description' => 'nullable|string'
         ]);
 
-        $admin = Administrateur::find($user->id);
-        $admin->modifierCategory($category, $validated);
+        $category->update($validated);
 
         return response()->json([
             'success' => true,
@@ -124,14 +106,11 @@ class CategoryController extends Controller
 
     public function destroy(Category $category)
     {
-        $user = $this->checkAdmin();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès non autorisé. Vous devez être administrateur.'
-            ], 403);
-        }
+        // Policy: delete - Vérifie si admin ET si pas de livres
+        $this->authorize('delete', $category);
         
+        // La policy a déjà vérifié s'il y a des livres
+        // Mais on garde une vérification supplémentaire
         if ($category->books()->count() > 0) {
             return response()->json([
                 'success' => false,
@@ -139,8 +118,7 @@ class CategoryController extends Controller
             ], 400);
         }
 
-        $admin = Administrateur::find($user->id);
-        $admin->supprimerCategory($category);
+        $category->delete();
 
         return response()->json([
             'success' => true,
@@ -151,6 +129,9 @@ class CategoryController extends Controller
     public function books(Request $request, $categorySlug)
     {
         $category = Category::where('slug', $categorySlug)->firstOrFail();
+        
+        // Policy: viewBooks - Tout le monde peut voir les livres d'une catégorie
+        $this->authorize('viewBooks', $category);
         
         $filtres = [
             'search' => $request->search,
